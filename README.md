@@ -221,7 +221,7 @@ snowflake-ml-python
 ---
 
 ## 👥 Auteurs
-
+Fall Magueye - Seynabou Sene - Mame Diarra Ndiaye
 *MBAESG — Promotion MBIAD — Classe O2*
 
 ---
