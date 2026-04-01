@@ -6,8 +6,8 @@ from snowflake.snowpark.context import get_active_session
 
 session = get_active_session()
 
-st.set_page_config(page_title="🏠 House Price Predictor", layout="wide")
-st.title("🏠 House Price Predictor")
+st.set_page_config(page_title="🏠 Estimation du Prix Immobilier", layout="wide")
+st.title("🏠 Estimation du Prix Immobilier")
 st.markdown("Renseignez les caractéristiques de la maison et obtenez une estimation de prix.")
 
 @st.cache_data
@@ -21,8 +21,8 @@ def load_scaler_params():
     stds  = df.set_index('FEATURE')['STD_VAL'].replace(0, 1)
     return means, stds
 
-ref_df        = load_reference_data()
-means, stds   = load_scaler_params()
+ref_df      = load_reference_data()
+means, stds = load_scaler_params()
 
 feature_cols = ['AREA','BEDROOMS','BATHROOMS','STORIES','MAINROAD',
                 'GUESTROOM','BASEMENT','HOTWATERHEATING','AIRCONDITIONING',
@@ -37,33 +37,32 @@ stories   = st.sidebar.slider("Étages",           int(ref_df['STORIES'].min()),
 parking   = st.sidebar.slider("Parking",          int(ref_df['PARKING'].min()),   int(ref_df['PARKING'].max()),   int(ref_df['PARKING'].median()))
 
 st.sidebar.subheader("🏷️ Options")
-mainroad        = st.sidebar.selectbox("Route principale",     ["yes", "no"])
-guestroom       = st.sidebar.selectbox("Chambre d'amis",       ["yes", "no"])
-basement        = st.sidebar.selectbox("Sous-sol",             ["yes", "no"])
-hotwaterheating = st.sidebar.selectbox("Chauffage eau chaude", ["yes", "no"])
-airconditioning = st.sidebar.selectbox("Climatisation",        ["yes", "no"])
-prefarea        = st.sidebar.selectbox("Zone privilégiée",     ["yes", "no"])
-furnishing      = st.sidebar.selectbox("Ameublement",          ["furnished", "semi-furnished", "unfurnished"])
+mainroad        = st.sidebar.selectbox("Route principale",     ["Oui", "Non"])
+guestroom       = st.sidebar.selectbox("Chambre d'amis",       ["Oui", "Non"])
+basement        = st.sidebar.selectbox("Sous-sol",             ["Oui", "Non"])
+hotwaterheating = st.sidebar.selectbox("Chauffage eau chaude", ["Oui", "Non"])
+airconditioning = st.sidebar.selectbox("Climatisation",        ["Oui", "Non"])
+prefarea        = st.sidebar.selectbox("Zone privilégiée",     ["Oui", "Non"])
+furnishing      = st.sidebar.selectbox("Ameublement",          ["Meublé", "Semi-meublé", "Non meublé"])
 
 if st.sidebar.button("🔮 Estimer le prix", type="primary"):
     with st.spinner("Calcul en cours..."):
 
-        yes_no         = {'yes': 1, 'no': 0}
-        furnishing_map = {'unfurnished': 0, 'semi-furnished': 1, 'furnished': 2}
+        oui_non        = {'Oui': 1, 'Non': 0}
+        furnishing_map = {'Non meublé': 0, 'Semi-meublé': 1, 'Meublé': 2}
 
-        # Construire l'input brut
         input_raw = pd.Series({
             'AREA':             area,
             'BEDROOMS':         bedrooms,
             'BATHROOMS':        bathrooms,
             'STORIES':          stories,
-            'MAINROAD':         yes_no[mainroad],
-            'GUESTROOM':        yes_no[guestroom],
-            'BASEMENT':         yes_no[basement],
-            'HOTWATERHEATING':  yes_no[hotwaterheating],
-            'AIRCONDITIONING':  yes_no[airconditioning],
+            'MAINROAD':         oui_non[mainroad],
+            'GUESTROOM':        oui_non[guestroom],
+            'BASEMENT':         oui_non[basement],
+            'HOTWATERHEATING':  oui_non[hotwaterheating],
+            'AIRCONDITIONING':  oui_non[airconditioning],
             'PARKING':          parking,
-            'PREFAREA':         yes_no[prefarea],
+            'PREFAREA':         oui_non[prefarea],
             'FURNISHINGSTATUS': furnishing_map[furnishing]
         })
 
@@ -96,20 +95,19 @@ if st.sidebar.button("🔮 Estimer le prix", type="primary"):
             st.bar_chart(comp.set_index('Indicateur'))
 
             st.subheader("📋 Récapitulatif")
-            st.json({
-                'Surface (m²)':        area,
-                'Chambres':            bedrooms,
-                'Salles de bain':      bathrooms,
-                'Étages':              stories,
-                'Parking':             parking,
-                'Route principale':    mainroad,
-                "Chambre d'amis":      guestroom,
-                'Sous-sol':            basement,
-                'Chauffage eau chaude': hotwaterheating,
-                'Climatisation':       airconditioning,
-                'Zone privilégiée':    prefarea,
-                'Ameublement':         furnishing
+            recap = pd.DataFrame({
+                'Caractéristique': [
+                    'Surface (m²)', 'Chambres', 'Salles de bain', 'Étages', 'Parking',
+                    'Route principale', "Chambre d'amis", 'Sous-sol',
+                    'Chauffage eau chaude', 'Climatisation', 'Zone privilégiée', 'Ameublement'
+                ],
+                'Valeur': [
+                    f"{area} m²", bedrooms, bathrooms, stories, parking,
+                    mainroad, guestroom, basement,
+                    hotwaterheating, airconditioning, prefarea, furnishing
+                ]
             })
+            st.table(recap)
 
         except Exception as e:
             st.error(f"Erreur lors de la prédiction : {e}")
