@@ -1,7 +1,7 @@
 # 🏠 House Price Prediction — Pipeline ML complet sur Snowflake
 
 > **Évaluation Data Engineering & Machine Learning avec Snowflake**  
-> **MBAESG_MBIAD_O2_EVALUATION_DATAENGINEER_MLOPS**
+> **MBAESG_MBIAD_02_EVALUATION_DATAENGINEER_MLOPS**
 
 ---
 
