@@ -1,21 +1,21 @@
-# 🏠 House Price Prediction — Pipeline ML complet sur Snowflake
+# House Price Prediction — Pipeline ML complet sur Snowflake
 
 > **Évaluation Data Engineering & Machine Learning avec Snowflake**  
 > **MBAESG_MBIAD_02_EVALUATION_DATAENGINEER_MLOPS**
 
 ---
 
-## 📋 Description du projet
+## Description du projet
 
 Ce projet implémente un pipeline complet de **Data Engineering et Machine Learning** directement dans l'environnement **Snowflake**, sans extraction de données vers des systèmes externes. Il utilise les données de caractéristiques de maisons pour prédire leur prix de vente.
 
 **Dataset source :** `s3://logbrain-datalake/datasets/house_price/`  
 **Format :** JSON  
-**Nombre de lignes :** 1 090
+**Nombre de lignes :** 1 090 brutes (545 uniques après déduplication)
 
 ---
 
-## 🗂️ Contenu du dépôt
+## Contenu du dépôt
 
 ```
 .
@@ -26,7 +26,7 @@ Ce projet implémente un pipeline complet de **Data Engineering et Machine Learn
 
 ---
 
-## 📦 Dataset
+## Dataset
 
 | Colonne | Type | Description |
 |---------|------|-------------|
@@ -46,7 +46,7 @@ Ce projet implémente un pipeline complet de **Data Engineering et Machine Learn
 
 ---
 
-## 🔧 Architecture du pipeline
+## Architecture du pipeline
 
 ```
 S3 (logbrain-datalake) — Format JSON
@@ -55,17 +55,20 @@ S3 (logbrain-datalake) — Format JSON
     External Stage
           │
           ▼
-    Table HOUSE_PRICE (1090 lignes)
+    Table HOUSE_PRICE (1090 lignes brutes)
           │
           ▼
-    EDA (Snowpark + Altair + Streamlit)
+    Déduplication (545 lignes uniques)
+          │
+          ▼
+    EDA (Snowpark + Altair)
           │
           ▼
     Feature Engineering
     ├── Encodage binaire (yes/no → 0/1)
     ├── Encodage ordinal (FURNISHINGSTATUS)
     ├── Normalisation (StandardScaler → table SCALER_PARAMS)
-    └── Split Train 80% / Test 20%
+    └── Split Train 80% (436) / Test 20% (109)
           │
           ├──► Régression Linéaire (baseline)
           ├──► Random Forest Regressor
@@ -87,20 +90,20 @@ S3 (logbrain-datalake) — Format JSON
 
 ---
 
-## 📊 Analyse des performances des modèles
+## Analyse des performances des modèles
 
 ### Étape 1 — Comparaison initiale des modèles (sans optimisation)
 
-| Modèle | Train MAE | Test MAE | Train RMSE | Test RMSE | Train R² | Test R² |
-|--------|-----------|----------|------------|-----------|----------|---------|
-| Régression Linéaire | 39 696 | 40 253 | 53 640 | 53 985 | 0.6740 | 0.6732 |
-| Random Forest Regressor | 7 263 | 19 587 | 13 651 | 32 513 | 0.9789 | 0.8815 |
-| **XGBoost Regressor** | **2 630** | **12 757** | **5 036** | **27 517** | **0.9971** | **0.9151** |
+| Modèle | Train R² | Test R² | Test MAE | Test RMSE |
+|--------|----------|---------|----------|-----------|
+| Régression Linéaire | 0.6854 | **0.6492** | 49 000 | 66 579 |
+| Random Forest | 0.9501 | 0.6125 | 51 087 | 69 977 |
+| XGBoost | 0.9966 | 0.5840 | 53 305 | 72 504 |
 
 **Observations :**
-- La **Régression Linéaire** obtient un R² de 0.67, insuffisant — les relations entre features et prix ne sont pas purement linéaires.
-- **Random Forest** améliore significativement les performances (R² = 0.88) mais présente un sur-apprentissage marqué (écart train/test important).
-- **XGBoost** est le meilleur modèle initial avec un R² de 0.9151 sur le test et le MAE le plus faible (12 757 USD).
+- La **Régression Linéaire** obtient le meilleur R² test (0.6492) et la MAE la plus basse, servant de baseline solide.
+- **Random Forest** présente un sur-apprentissage marqué (train R² = 0.95 vs test R² = 0.61).
+- **XGBoost** sans tuning souffre du sur-apprentissage le plus sévère (train R² = 0.9966 vs test R² = 0.584) sur ce petit dataset de 545 lignes.
 
 ---
 
@@ -130,31 +133,32 @@ S3 (logbrain-datalake) — Format JSON
 
 ### Étape 3 — Meilleur modèle final
 
-**Algorithme sélectionné : XGBoost Regressor**
+**Algorithme sélectionné : XGBoost Regressor (optimisé)**
 
 | Hyperparamètre | Valeur optimale |
 |----------------|----------------|
-| `n_estimators` | 100 |
-| `max_depth` | 7 |
+| `n_estimators` | 200 |
+| `max_depth` | 3 |
 | `learning_rate` | 0.1 |
-| `subsample` | 0.8 |
+| `subsample` | 1.0 |
 | `random_state` | 42 |
 
 **Performances finales :**
 
 | Métrique | Valeur |
 |----------|--------|
-| **R² (test)** | **0.9172** |
-| **MAE (test)** | **14 687 USD** |
-| **RMSE (test)** | **27 173 USD** |
+| **R² (test)** | **0.6636** |
+| **MAE (test)** | **47 644 USD** |
+| **RMSE (test)** | **65 196 USD** |
 
 ---
 
 ### Interprétation des résultats
 
-- Un **R² de 0.9172** signifie que le modèle explique **91.7% de la variance** des prix — excellente performance.
-- Un **MAE de 14 687 USD** signifie qu'en moyenne, le modèle se trompe de ~14 700 USD sur le prix prédit.
-- Le **RMSE de 27 173 USD** indique que les erreurs importantes restent contenues.
+- Un **R² de 0.6636** signifie que le modèle explique **66.4% de la variance** des prix — performance modeste liée à la taille réduite du dataset (545 lignes).
+- Un **MAE de 47 644 USD** signifie qu'en moyenne, le modèle se trompe d'environ 48 000 USD sur le prix prédit.
+- Le **RMSE de 65 196 USD** indique que certaines erreurs importantes persistent, notamment sur les biens à prix élevé (> 400 000 USD).
+- Des features supplémentaires (localisation, année de construction, etc.) seraient nécessaires pour améliorer significativement les prédictions.
 
 ### Features les plus influentes (d'après XGBoost)
 
@@ -168,7 +172,7 @@ S3 (logbrain-datalake) — Format JSON
 
 ---
 
-## 🚀 Instructions d'exécution
+## Instructions d'exécution
 
 ### Prérequis Snowflake
 - Rôle avec droits `CREATE DATABASE`, `CREATE SCHEMA`, `CREATE STAGE`, `CREATE TABLE`, `CREATE MODEL`
@@ -179,17 +183,23 @@ S3 (logbrain-datalake) — Format JSON
 xgboost
 snowflake-ml-python
 ```
-> `scikit-learn`, `pandas`, `altair` et `streamlit` sont inclus par défaut.
+> `scikit-learn`, `pandas` et `altair` sont inclus par défaut.
 
 ### Ordre d'exécution
 1. Ouvrir `HOUSE_PRICE_PREDICTION_NOTEBOOK.ipynb` dans **Snowflake Notebooks**
 2. Installer les packages requis
 3. Exécuter les cellules dans l'ordre (étapes 1 à 10)
-4. Créer une **Streamlit App** dans Snowflake et coller le contenu de `streamlit_app.py`
+4. L'application Streamlit est déployée via :
+   ```sql
+   CREATE OR REPLACE STREAMLIT HOUSE_PRICE_DB.ML_SCHEMA.HOUSE_PRICE_APP
+     ROOT_LOCATION = '@HOUSE_PRICE_DB.ML_SCHEMA.STREAMLIT_STAGE'
+     MAIN_FILE = 'streamlit_app.py'
+     QUERY_WAREHOUSE = 'COMPUTE_WH';
+   ```
 
 ---
 
-## 🏗️ Technologies utilisées
+## Technologies utilisées
 
 | Technologie | Usage |
 |-------------|-------|
@@ -205,11 +215,11 @@ snowflake-ml-python
 
 ---
 
-## 📁 Tables créées dans Snowflake
+## Tables créées dans Snowflake
 
 | Table | Description |
 |-------|-------------|
-| `HOUSE_PRICE_DB.ML_SCHEMA.HOUSE_PRICE` | Dataset original (1090 lignes) |
+| `HOUSE_PRICE_DB.ML_SCHEMA.HOUSE_PRICE` | Dataset original (1090 lignes, 545 uniques) |
 | `HOUSE_PRICE_DB.ML_SCHEMA.HOUSE_PRICE_RAW` | Données JSON brutes |
 | `HOUSE_PRICE_DB.ML_SCHEMA.HOUSE_PRICE_TEST_DATA` | Données de test (features + prix réel) |
 | `HOUSE_PRICE_DB.ML_SCHEMA.HOUSE_PRICE_PREDICTIONS` | Prédictions vs valeurs réelles |
@@ -220,11 +230,11 @@ snowflake-ml-python
 
 ---
 
-## 👥 Auteurs
+## Auteurs
 Fall Magueye - Seynabou Sene - Mame Diarra Ndiaye
 
 *MBAESG — Promotion MBIAD — Classe 02*
 
 ---
 
-*Livrable : **MBAESG_MBIAD_O2_EVALUATION_DATAENGINEER_MLOPS***
+*Livrable : **MBAESG_MBDIA_O2_EVALUATION_DATAENGINEER_MLOPS***
